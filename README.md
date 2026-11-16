@@ -1,5 +1,7 @@
 # Sentinela Pomba
 
+**Protótipo:** https://sentinela-pomba.vercel.app
+
 Protótipo IoT de **monitoramento hidrológico e previsão de cheias para Cataguases/MG**, desenvolvido para a disciplina
 **1322010-2025.3-A, Análise de Dados de Dispositivos IoT e de Sensores** (Departamento de Ciência da Computação, UFJF).
 Tema 1, Monitoramento Ambiental: níveis de rios e córregos.
@@ -39,7 +41,7 @@ Com isso, o sistema projeta o nível em Cataguases para até 72h, avalia 8 regra
 Exemplo de envio de telemetria:
 
 ```bash
-curl -X POST https://SEU-PROJETO.vercel.app/api/telemetria -H 'Content-Type: application/json' -d '{"dispositivo_id":"ze-tunin","timestamp":"2026-11-16T12:00:00Z","leituras":{"abertura_pct":18,"nivel_reservatorio_m":304.2,"pressao_kpa":150,"carga_pct":115,"vibracao_mm_s":9}}'
+curl -X POST https://sentinela-pomba.vercel.app/api/telemetria -H 'Content-Type: application/json' -d '{"dispositivo_id":"ze-tunin","timestamp":"2026-11-16T12:00:00Z","leituras":{"abertura_pct":18,"nivel_reservatorio_m":304.2,"pressao_kpa":150,"carga_pct":115,"vibracao_mm_s":9}}'
 ```
 
 ## Regras de negócio
@@ -81,7 +83,7 @@ npm run dev
 ## Coleta agendada
 
 - **Vercel Cron** (`vercel.json`): consolidado diário às 10h UTC.
-- **GitHub Actions** (`.github/workflows/coleta.yml`): a cada 15 min. Defina a variável de repositório `APP_URL` com a URL publicada.
+- **GitHub Actions** (`.github/workflows/coleta.yml`): a cada 15 min. Usa https://sentinela-pomba.vercel.app (ou a variável de repositório `APP_URL`, se definida).
 
 ## Persistência (Google Sheets)
 

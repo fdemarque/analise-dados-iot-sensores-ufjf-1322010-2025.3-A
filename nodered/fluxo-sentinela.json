@@ -87,7 +87,7 @@
     "name": "POST /api/telemetria",
     "method": "POST",
     "ret": "obj",
-    "url": "https://SEU-PROJETO.vercel.app/api/telemetria",
+    "url": "https://sentinela-pomba.vercel.app/api/telemetria",
     "x": 790,
     "y": 80,
     "wires": [
