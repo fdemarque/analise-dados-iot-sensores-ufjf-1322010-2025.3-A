@@ -1,6 +1,8 @@
 # Sentinela Pomba
 
-**Protótipo:** https://sentinela-pomba.vercel.app
+**Protótipo:** https://sentinela-pomba.vercel.app  
+**Documento de Especificação (PDF, ABNT):** [docs/Especificacao_Sentinela_Pomba_Filipe_Demarque.pdf](docs/Especificacao_Sentinela_Pomba_Filipe_Demarque.pdf)  
+**Autor:** Filipe da Silva Demarque
 
 Protótipo IoT de **monitoramento hidrológico e previsão de cheias para Cataguases/MG**, desenvolvido para a disciplina
 **1322010-2025.3-A, Análise de Dados de Dispositivos IoT e de Sensores** (Departamento de Ciência da Computação, UFJF).
@@ -70,6 +72,7 @@ lib/estado.ts       orquestração end-to-end e motor de regras
 lib/simulador.ts    sensores simulados e cenários
 lib/store.ts        persistência (Google Sheets ou memória), idempotente
 nodered/            fluxo Node-RED do gateway simulado (edge + store-and-forward)
+docs/relatorio/     fontes do documento ABNT (python3 docs/relatorio/build.py gera o PDF)
 docs/sheets-api.md  contrato da API de persistência (Google Sheets)
 ```
 
