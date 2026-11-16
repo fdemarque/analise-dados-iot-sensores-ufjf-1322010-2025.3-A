@@ -41,6 +41,7 @@ FOLHA_ROSTO = f'''
     parcial de avaliação da Atividade Prática da Unidade 5 – Projeto Integrador de Software IoT: Engenharia de Requisitos,
     Arquitetura e Prototipagem.</p>
     <p>Tema 1 – Monitoramento Ambiental.</p>
+    <p>Docente: Luciana Conceição Dias Campos.</p>
   </div>
   <div class="rodape-capa"><p>{LOCAL}</p><p>{ANO}</p></div>
 </section>
