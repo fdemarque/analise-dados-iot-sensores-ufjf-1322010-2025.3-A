@@ -70,7 +70,7 @@ lib/estado.ts       orquestração end-to-end e motor de regras
 lib/simulador.ts    sensores simulados e cenários
 lib/store.ts        persistência (Google Sheets ou memória), idempotente
 nodered/            fluxo Node-RED do gateway simulado (edge + store-and-forward)
-docs/apps-script.gs Web App de persistência (Google Sheets)
+docs/sheets-api.md  contrato da API de persistência (Google Sheets)
 ```
 
 ## Rodar localmente
@@ -88,14 +88,11 @@ npm run dev
 ## Persistência (Google Sheets)
 
 A planilha **Sentinela Pomba – Banco de Prototipagem** (abas `telemetria`, `alertas` e `resumo_diario`) funciona como banco
-por meio de um Apps Script publicado como Web App. O código e o contrato estão em [`docs/apps-script.gs`](docs/apps-script.gs).
+por meio de um Apps Script publicado como Web App. O contrato da API está em [`docs/sheets-api.md`](docs/sheets-api.md).
 
-1. Na planilha, abra Extensões > Apps Script, cole `docs/apps-script.gs` e defina a propriedade de script `SHEETS_TOKEN`.
-2. Implante como App da Web (executar como: você; acesso: qualquer pessoa).
-3. Na Vercel, em Settings > Environment Variables, defina `SHEETS_WEBAPP_URL` (URL `/exec`) e `SHEETS_TOKEN`, e faça um novo deploy.
-4. Teste com `GET /api/saude`.
-
-Sem essas variáveis, o protótipo usa memória do servidor (degradação graciosa). Escritas são idempotentes pela coluna `chave`.
+Configure `SHEETS_WEBAPP_URL` e `SHEETS_TOKEN` em Vercel > Settings > Environment Variables (nunca no código) e verifique com `GET /api/saude`.
+Sem essas variáveis, ou se a planilha não responder, o protótipo continua funcionando com memória do servidor (degradação graciosa).
+As escritas são idempotentes pela coluna `chave`.
 
 ## Fontes
 

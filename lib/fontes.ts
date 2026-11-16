@@ -36,17 +36,32 @@ export function parseAnaXml(xml: string): Leitura[] {
   return out.sort((a, b) => a.ts.localeCompare(b.ts));
 }
 
-export async function buscarAna(codigo: string, dias = 3): Promise<{ ok: boolean; leituras: Leitura[]; erro?: string }> {
+// Último resultado bom por estação: se a ANA falhar (HTTP 5xx/timeout), usa o último dado conhecido.
+// A defasagem continua visível porque o status do sensor é calculado pela idade da última leitura (R7).
+const g = globalThis as unknown as { __anaCache?: Map<string, Leitura[]> };
+const cacheAna = (g.__anaCache ??= new Map());
+
+export async function buscarAna(codigo: string, dias = 3): Promise<{ ok: boolean; leituras: Leitura[]; erro?: string; doCache?: boolean }> {
   const fim = new Date(Date.now() + 24 * 3600e3);
   const ini = new Date(Date.now() - dias * 24 * 3600e3);
   const url = `${ANA_URL}?codEstacao=${codigo}&dataInicio=${fmt(ini)}&dataFim=${fmt(fim)}`;
-  try {
-    const r = await fetch(url, { next: { revalidate: 600 }, signal: AbortSignal.timeout(45000) });
-    if (!r.ok) return { ok: false, leituras: [], erro: `HTTP ${r.status}` };
-    return { ok: true, leituras: parseAnaXml(await r.text()) };
-  } catch (e) {
-    return { ok: false, leituras: [], erro: (e as Error).message };
+  let erro = '';
+  for (let tentativa = 0; tentativa < 2; tentativa++) {
+    try {
+      const r = await fetch(url, { next: { revalidate: 600 }, signal: AbortSignal.timeout(25000) });
+      if (r.ok) {
+        const leituras = parseAnaXml(await r.text());
+        cacheAna.set(`${codigo}|${dias}`, leituras);
+        return { ok: true, leituras };
+      }
+      erro = `HTTP ${r.status}`;
+    } catch (e) {
+      erro = (e as Error).message;
+    }
+    if (tentativa === 0) await new Promise((res) => setTimeout(res, 1500)); // backoff curto antes de tentar de novo
   }
+  const anterior = cacheAna.get(`${codigo}|${dias}`);
+  return { ok: false, leituras: anterior ?? [], erro: anterior ? `${erro} (usando último dado em cache)` : erro, doCache: Boolean(anterior) };
 }
 
 export type PrevisaoBacia = {
