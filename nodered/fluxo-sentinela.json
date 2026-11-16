@@ -1,0 +1,124 @@
+[
+  {
+    "id": "3a5a876f491b4dfa",
+    "type": "tab",
+    "label": "Sentinela Pomba – gateway simulado"
+  },
+  {
+    "id": "8612b8cf7dfd4f8c",
+    "type": "inject",
+    "z": "3a5a876f491b4dfa",
+    "name": "a cada 1 min",
+    "props": [],
+    "repeat": "60",
+    "once": true,
+    "onceDelay": "2",
+    "x": 130,
+    "y": 80,
+    "wires": [
+      [
+        "7039f0775c7c4c96"
+      ]
+    ]
+  },
+  {
+    "id": "8b8208fa03f244f1",
+    "type": "inject",
+    "z": "3a5a876f491b4dfa",
+    "name": "liga/desliga anomalia",
+    "props": [],
+    "repeat": "",
+    "once": false,
+    "x": 150,
+    "y": 160,
+    "wires": [
+      [
+        "dd41ed8d0b1d434f"
+      ]
+    ]
+  },
+  {
+    "id": "dd41ed8d0b1d434f",
+    "type": "function",
+    "z": "3a5a876f491b4dfa",
+    "name": "alternar anomalia",
+    "func": "flow.set('anomalia', !flow.get('anomalia'));\nnode.status({text: 'anomalia: ' + flow.get('anomalia')});\nreturn null;",
+    "outputs": 1,
+    "x": 370,
+    "y": 160,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "7039f0775c7c4c96",
+    "type": "function",
+    "z": "3a5a876f491b4dfa",
+    "name": "gerar leitura da comporta",
+    "func": "// Simula a instrumentação da comporta da PCH Ivan Botelho III\nconst NA = 286.2 + (Math.random() - 0.5) * 0.06;      // nível do reservatório (m)\nconst cotaSensor = 273.0;                              // cota do piezômetro (m)\nconst teorica = 1000 * 9.81 * (NA - cotaSensor) / 1000; // kPa\nconst anomalia = flow.get('anomalia') || false;\nmsg.payload = {\n  dispositivo_id: 'ivan-botelho-3',\n  timestamp: new Date().toISOString(),\n  seq: (flow.get('seq') || 0) + 1,\n  leituras: {\n    abertura_pct: +(15 + Math.random() * 4).toFixed(1),\n    nivel_reservatorio_m: +NA.toFixed(2),\n    pressao_kpa: +(teorica * (anomalia ? 1.25 : 1 + (Math.random() - 0.5) * 0.03)).toFixed(1),\n    carga_pct: +(60 + Math.random() * 6).toFixed(1),\n    vibracao_mm_s: +((anomalia ? 8 : 2) + Math.random()).toFixed(2)\n  }\n};\nflow.set('seq', msg.payload.seq);\nmsg.teorica = teorica;\nreturn msg;",
+    "outputs": 1,
+    "x": 360,
+    "y": 80,
+    "wires": [
+      [
+        "9f74d95904594806"
+      ]
+    ]
+  },
+  {
+    "id": "9f74d95904594806",
+    "type": "function",
+    "z": "3a5a876f491b4dfa",
+    "name": "regra edge + fila",
+    "func": "// Regra de borda (edge): SE desvio de pressão >= 15% ENTÃO marca prioridade alta\nconst p = msg.payload.leituras.pressao_kpa;\nconst desvio = Math.abs(p - msg.teorica) / msg.teorica * 100;\nmsg.headers = { 'Content-Type': 'application/json', 'X-Prioridade': desvio >= 15 ? 'alta' : 'normal' };\nif (desvio >= 15) node.warn(`Desvio de pressão ${desvio.toFixed(1)}%: enviando com prioridade alta`);\n// Store-and-forward: envia junto o que ficou na fila durante a queda de conexão\nconst fila = flow.get('fila') || [];\nmsg.payload = fila.concat([msg.payload]);\nflow.set('pendente', msg.payload);\nreturn msg;",
+    "outputs": 1,
+    "x": 580,
+    "y": 80,
+    "wires": [
+      [
+        "12e026b8790f4df9"
+      ]
+    ]
+  },
+  {
+    "id": "12e026b8790f4df9",
+    "type": "http request",
+    "z": "3a5a876f491b4dfa",
+    "name": "POST /api/telemetria",
+    "method": "POST",
+    "ret": "obj",
+    "url": "https://SEU-PROJETO.vercel.app/api/telemetria",
+    "x": 790,
+    "y": 80,
+    "wires": [
+      [
+        "695bb2bfa3674abb"
+      ]
+    ]
+  },
+  {
+    "id": "695bb2bfa3674abb",
+    "type": "function",
+    "z": "3a5a876f491b4dfa",
+    "name": "confirmar / reenfileirar",
+    "func": "// 2xx: limpa a fila. Erro de rede/5xx: guarda para retransmitir (até 500 leituras)\nif (msg.statusCode >= 200 && msg.statusCode < 300) { flow.set('fila', []); }\nelse { const p = flow.get('pendente') || []; flow.set('fila', p.slice(-500)); node.warn('Falha no envio; ' + p.length + ' leitura(s) na fila'); }\nreturn msg;",
+    "outputs": 1,
+    "x": 1010,
+    "y": 80,
+    "wires": [
+      [
+        "a36b06e50b4e4343"
+      ]
+    ]
+  },
+  {
+    "id": "a36b06e50b4e4343",
+    "type": "debug",
+    "z": "3a5a876f491b4dfa",
+    "name": "resposta",
+    "complete": "payload",
+    "x": 1200,
+    "y": 80,
+    "wires": []
+  }
+]

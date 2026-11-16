@@ -1,0 +1,16 @@
+# Coleta a cada 15 minutos (o Vercel Cron do plano gratuito roda só uma vez por dia).
+name: coleta-telemetria
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar /api/coleta
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then echo "Defina a variável APP_URL em Settings > Secrets and variables > Actions > Variables"; exit 0; fi
+          curl -fsS --retry 3 --retry-delay 10 "$APP_URL/api/coleta" | head -c 600
