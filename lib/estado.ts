@@ -4,7 +4,11 @@ import { buscarAna, buscarPrevisao, type Leitura, type PrevisaoBacia } from './f
 import { coefEscoamento, contribuicaoChuva, contribuicaoMontante, projetar, somaChuva, taxaCmH, validarSerie, validas, vazaoDaCota, type Contribuicao, type LeituraValidada, type ProjecaoPonto } from './modelo';
 import { PESO, REGRAS, type Alerta, type Severidade } from './regras';
 import { aplicarCenarioPrevisao, aplicarCenarioSerie, CENARIOS, serieComporta, type CenarioId, type LeituraComporta } from './simulador';
-import { telemetriaRecente } from './store';
+import { telemetriaGateway } from './store';
+
+function comLimite<T>(p: Promise<T>, ms: number, padrao: T): Promise<T> {
+  return Promise.race([p.catch(() => padrao), new Promise<T>((res) => setTimeout(() => res(padrao), ms))]);
+}
 
 export type EstadoEstacao = {
   id: string; nome: string; rio: string; codigoAna: string; papel: string; lagHoras: number;
@@ -57,16 +61,19 @@ function estadoEstacao(e: EstacaoFluvial, bruta: Leitura[], erro: string | undef
   };
 }
 
-export async function montarEstado(cenarioParam?: string) {
+export async function montarEstado(cenarioParam?: string, limiteAnaMs = 8000) {
   const cenario: CenarioId = (CENARIOS.find((c) => c.id === cenarioParam)?.id ?? 'real') as CenarioId;
   const agora = Date.now();
 
   // 1) Ingestão paralela das fontes reais (falha de uma fonte não derruba as demais)
-  const [anaAlvo, anaMontante, anaBarragens, meteo] = await Promise.all([
-    buscarAna(CATAGUASES.codigoAna, 3),
-    Promise.all(ESTACOES_MONTANTE.map((e) => buscarAna(e.codigoAna, 3))),
-    Promise.all(BARRAGENS.map((b) => buscarAna(b.codigoAna, 7))),
+  // Telemetria de gateway (planilha) em paralelo com as fontes externas, com limite de espera
+  const gatewayP = cenario === 'real' ? comLimite(telemetriaGateway(agora - 6 * 3600e3), 5000, []) : Promise.resolve([]);
+  const [anaAlvo, anaMontante, anaBarragens, meteo, gateway] = await Promise.all([
+    buscarAna(CATAGUASES.codigoAna, 3, limiteAnaMs),
+    Promise.all(ESTACOES_MONTANTE.map((e) => buscarAna(e.codigoAna, 3, limiteAnaMs))),
+    Promise.all(BARRAGENS.map((b) => buscarAna(b.codigoAna, 3, limiteAnaMs))),
     buscarPrevisao(),
+    gatewayP,
   ]);
 
   // 2) Gêmeos digitais das estações fluviométricas
@@ -99,7 +106,7 @@ export async function montarEstado(cenarioParam?: string) {
       const nivelReal = ultReal ? { m: ultReal.nivelCm! / 100, ts: ultReal.ts } : null;
       let serie = serieComporta(b, nivelReal?.m ?? null, cenario, agora);
       let fonte: 'simulado' | 'gateway' = 'simulado';
-      const gw = cenario === 'real' ? await telemetriaRecente(b.id, agora - 6 * 3600e3) : [];
+      const gw = gateway.filter((t) => t.dispositivoId === b.id).sort((x, y) => x.ts.localeCompare(y.ts));
       if (gw.length) {
         fonte = 'gateway';
         const conv = gw.map((t) => {

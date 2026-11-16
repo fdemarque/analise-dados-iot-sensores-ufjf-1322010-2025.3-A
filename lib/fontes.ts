@@ -1,4 +1,6 @@
 // Camada de ingestão: busca dados REAIS em APIs públicas (ANA e Open-Meteo).
+import { unstable_cache } from 'next/cache';
+import { after } from 'next/server';
 import { SUB_BACIAS } from './config';
 
 export type Leitura = { ts: string; nivelCm: number | null; vazao: number | null; chuvaMm: number | null };
@@ -36,32 +38,49 @@ export function parseAnaXml(xml: string): Leitura[] {
   return out.sort((a, b) => a.ts.localeCompare(b.ts));
 }
 
-// Último resultado bom por estação: se a ANA falhar (HTTP 5xx/timeout), usa o último dado conhecido.
-// A defasagem continua visível porque o status do sensor é calculado pela idade da última leitura (R7).
+type ResultadoAna = { ok: boolean; leituras: Leitura[]; erro?: string; doCache?: boolean };
+
+// Último resultado bom por instância (fallback de memória).
 const g = globalThis as unknown as { __anaCache?: Map<string, Leitura[]> };
 const cacheAna = (g.__anaCache ??= new Map());
 
-export async function buscarAna(codigo: string, dias = 3): Promise<{ ok: boolean; leituras: Leitura[]; erro?: string; doCache?: boolean }> {
+/** Busca direta na ANA (o servidor da ANA pode levar até ~60 s). Lança erro em falha para não ser cacheada. */
+async function anaDireto(codigo: string, dias: number): Promise<Leitura[]> {
   const fim = new Date(Date.now() + 24 * 3600e3);
   const ini = new Date(Date.now() - dias * 24 * 3600e3);
   const url = `${ANA_URL}?codEstacao=${codigo}&dataInicio=${fmt(ini)}&dataFim=${fmt(fim)}`;
-  let erro = '';
-  for (let tentativa = 0; tentativa < 2; tentativa++) {
-    try {
-      const r = await fetch(url, { next: { revalidate: 600 }, signal: AbortSignal.timeout(25000) });
-      if (r.ok) {
-        const leituras = parseAnaXml(await r.text());
-        cacheAna.set(`${codigo}|${dias}`, leituras);
-        return { ok: true, leituras };
-      }
-      erro = `HTTP ${r.status}`;
-    } catch (e) {
-      erro = (e as Error).message;
+  const r = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(55000) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const leituras = parseAnaXml(await r.text());
+  cacheAna.set(`${codigo}|${dias}`, leituras);
+  return leituras;
+}
+
+// Cache persistente da Vercel (Data Cache), compartilhado entre instâncias:
+// após 15 min o valor fica "velho" e é servido imediatamente enquanto é revalidado em segundo plano.
+const anaCacheada = unstable_cache(anaDireto, ['ana-telemetria-v2'], { revalidate: 900, tags: ['ana'] });
+
+/**
+ * Nunca deixa a requisição esperar mais que `limiteMs` pela ANA. Se estourar, a busca segue em
+ * segundo plano (after) e abastece o cache para as próximas requisições; enquanto isso usa o último dado conhecido.
+ */
+export async function buscarAna(codigo: string, dias = 3, limiteMs = 8000): Promise<ResultadoAna> {
+  const p = anaCacheada(codigo, dias);
+  let estourou = false;
+  try {
+    const leituras = await Promise.race([
+      p,
+      new Promise<never>((_, rej) => setTimeout(() => { estourou = true; rej(new Error('ANA lenta')); }, limiteMs)),
+    ]);
+    return { ok: true, leituras };
+  } catch (e) {
+    if (estourou) {
+      try { after(() => p.then(() => undefined, () => undefined)); } catch { /* fora de contexto de requisição */ }
     }
-    if (tentativa === 0) await new Promise((res) => setTimeout(res, 1500)); // backoff curto antes de tentar de novo
+    const anterior = cacheAna.get(`${codigo}|${dias}`);
+    const motivo = estourou ? `ANA não respondeu em ${limiteMs / 1000} s` : (e as Error).message;
+    return { ok: false, leituras: anterior ?? [], erro: anterior ? `${motivo} (usando último dado em cache)` : motivo, doCache: Boolean(anterior) };
   }
-  const anterior = cacheAna.get(`${codigo}|${dias}`);
-  return { ok: false, leituras: anterior ?? [], erro: anterior ? `${erro} (usando último dado em cache)` : erro, doCache: Boolean(anterior) };
 }
 
 export type PrevisaoBacia = {
@@ -75,7 +94,7 @@ export async function buscarPrevisao(): Promise<{ ok: boolean; bacias: PrevisaoB
   const lon = SUB_BACIAS.map((b) => b.lon).join(',');
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation&past_days=3&forecast_days=4&timezone=UTC`;
   try {
-    const r = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(20000) });
+    const r = await fetch(url, { next: { revalidate: 1800 }, signal: AbortSignal.timeout(10000) });
     if (!r.ok) return { ok: false, bacias: [], erro: `HTTP ${r.status}` };
     const j = await r.json();
     const arr = Array.isArray(j) ? j : [j];

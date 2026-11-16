@@ -5,11 +5,13 @@ import { montarEstado } from '@/lib/estado';
 import { salvarAlertas, salvarResumoDiario, nomePersistencia } from '@/lib/store';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function GET() {
-  const e = await montarEstado('real');
+  // O job agendado aceita esperar a ANA (até 50 s) para manter o cache aquecido
+  const e = await montarEstado('real', 50000);
   const janela = new Date(Math.floor(Date.now() / 3600e3) * 3600e3).toISOString();
-  const novos = await salvarAlertas(e.alertas.map((a) => ({ ...a, chave: `${a.regra}|${a.alvo}|real|${janela}`, cenario: 'real', criadoEm: e.geradoEm })));
+  const novos = await salvarAlertas(e.alertas.filter((a) => e.fontes.ana.ok || a.regra !== 'R7').map((a) => ({ ...a, chave: `${a.regra}|${a.alvo}|real|${janela}`, cenario: 'real', criadoEm: e.geradoEm })));
   const niveis = e.alvo.serie.filter((s) => s.qualidade === 'ok' && s.nivelCm !== null && Date.parse(s.ts) >= Date.now() - 24 * 3600e3).map((s) => s.nivelCm!);
   const dia = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
   await salvarResumoDiario({

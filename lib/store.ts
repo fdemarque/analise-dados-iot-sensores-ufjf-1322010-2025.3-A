@@ -103,6 +103,10 @@ async function telemetriaRecenteTodas(desdeMs: number): Promise<TelemetriaGatewa
   return dados;
 }
 
+export async function telemetriaGateway(desdeMs: number): Promise<TelemetriaGateway[]> {
+  return (await telemetriaRecenteTodas(desdeMs)).filter((t) => Date.parse(t.ts) >= desdeMs);
+}
+
 export async function telemetriaRecente(dispositivoId: string, desdeMs: number): Promise<TelemetriaGateway[]> {
   const todas = await telemetriaRecenteTodas(desdeMs);
   return todas.filter((t) => t.dispositivoId === dispositivoId && Date.parse(t.ts) >= desdeMs).sort((a, b) => a.ts.localeCompare(b.ts));

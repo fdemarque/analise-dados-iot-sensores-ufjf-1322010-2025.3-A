@@ -182,3 +182,29 @@ textarea { width: 100%; min-height: 220px; border: 1px solid var(--border); back
 .legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.8rem; color: var(--muted); }
 .legenda span { display: inline-flex; align-items: center; gap: 6px; }
 .legenda i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* Tela de carregamento */
+.carga { max-width: 640px; margin: 24px auto 0; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px 28px; box-shadow: var(--shadow); text-align: center; }
+.carga h1 { font-size: 1.45rem; margin-top: 12px; }
+.carga-sub { color: var(--muted); margin: 10px auto 0; max-width: 54ch; }
+.carga-sub b { color: var(--text); }
+.carga-icone { display: inline-grid; place-items: center; width: 84px; height: 84px; border-radius: 20px; background: var(--accent-soft); }
+.carga-icone path { fill: none; stroke: var(--accent); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.carga-icone .o2 { opacity: 0.5; }
+.carga-icone .onda { animation: ondula 1.6s ease-in-out infinite; }
+.carga-icone .o2 { animation-delay: 0.25s; }
+.carga-icone .seta { animation: desce 1.2s ease-in-out infinite; }
+@keyframes ondula { 50% { transform: translateX(3px); } }
+@keyframes desce { 0% { transform: translateY(-4px); opacity: 0.4; } 60% { transform: translateY(2px); opacity: 1; } 100% { transform: translateY(-4px); opacity: 0.4; } }
+.carga-etapas { list-style: none; padding: 0; margin: 22px 0 0; text-align: left; display: grid; gap: 10px; }
+.carga-etapas li { display: flex; gap: 12px; align-items: flex-start; background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+.carga-etapas li div { display: flex; flex-direction: column; }
+.carga-etapas li span:not(.spin) { color: var(--muted); font-size: 0.85rem; }
+.carga-tempo { color: var(--muted); font-size: 0.85rem; margin: 16px 0 0; min-height: 1.4em; }
+.spin { flex: none; width: 16px; height: 16px; margin-top: 3px; border-radius: 50%; border: 2.5px solid var(--accent-soft); border-top-color: var(--accent); animation: gira 0.9s linear infinite; }
+@keyframes gira { to { transform: rotate(360deg); } }
+.aviso-atual { display: flex; gap: 10px; align-items: flex-start; background: var(--accent-soft); color: var(--text); border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-size: 0.88rem; }
+@media (prefers-reduced-motion: reduce) { .spin, .carga-icone path { animation: none; } }
+.carga-prog { height: 6px; border-radius: 3px; background: var(--surface-2); margin: 20px 0 0; overflow: hidden; }
+.carga-prog i { display: block; height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.5s linear; }
+.carga-nota { color: var(--muted); font-size: 0.85rem; margin: 10px auto 0; max-width: 56ch; }
